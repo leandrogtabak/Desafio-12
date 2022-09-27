@@ -7,86 +7,120 @@ import { ContenedorMongoDb } from './contenedores/ContenedorMongoDb.js';
 import { ContenedorFirebase } from './contenedores/ContenedorFirebase.js';
 import { ContenedorArchivo } from './contenedores/ContenedorArchivo.js';
 import { Mensaje } from './models/mensaje.js';
-import { normalize, schema } from 'normalizr';
+import handlebars from 'express-handlebars';
 import util from 'util';
 import moment from 'moment';
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import MongoStore from 'connect-mongo';
+// import router from './routes/router.js';
 
-function print(objeto) {
-  console.log(util.inspect(objeto, false, 12, true), {
-    length: JSON.stringify(objeto).length,
-  });
-}
-
-// const miContenedorMongoDB = new ContenedorMongoDb(urlMongo, Mensaje);   //probar mongo descomentando esto y usand en las funciones de abajo, a este contenedor
-// const miContenedorFirebase = new ContenedorFirebase(urlJson, urlDb, 'ecommerce'); //probar firebase descomentando esto y usand en las funciones de abajo, a este contenedor
-const miContenedorArchivo = new ContenedorArchivo('./mensajes.json');
-
-/* ESQUEMAS PARA NORMALIZER */
-
-// Definimos un esquema de autor
-const schemaAuthor = new schema.Entity('author', {}, { idAttribute: 'email' });
-// Definimos un esquema de mensaje
-const schemaMensaje = new schema.Entity('post', { author: schemaAuthor }, { idAttribute: 'id' });
-// Definimos un esquema de posts
-const schemaMensajes = new schema.Entity('posts', { mensajes: [schemaMensaje] }, { idAttribute: 'id' });
-
-async function createRandomProduct() {
-  return {
-    nombre: faker.commerce.product(),
-    precio: faker.commerce.price(),
-    fotoUrl: faker.image.avatar(),
-  };
-}
-
-async function getAndEmit(container, id) {
-  const arrayMensajes = await container.getAll();
-  const miObjetoMensajes = { id: id, mensajes: arrayMensajes };
-  const normalizedData = normalize(miObjetoMensajes, schemaMensajes);
-  io.sockets.emit(id, normalizedData);
-}
-async function saveByContainer(container, message) {
-  const mensajes = await container.getAll();
-  let id = mensajes && mensajes.length !== 0 ? mensajes[mensajes.length - 1].id + 1 : 1;
-  await container.save({ ...message, id: id });
-}
-async function deleteByContainer(container) {
-  await container.deleteAll();
-}
+const advancedOptions = { useNewUrlParser: true, useUnifiedTopology: true };
 
 const app = express();
 const httpServer = new HttpServer(app);
 const io = new IOServer(httpServer);
 
+app.use(express.static(path.resolve(__dirname, './views')));
+
+const PORT = 8080;
+httpServer.listen(PORT, function () {
+  console.log(`Servidor corriendo en ${PORT}`);
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static('./public'));
+app.use(cookieParser());
+// Session Setup
+app.use(
+  session({
+    store: MongoStore.create({
+      mongoUrl: 'mongodb+srv://newuser:tfDLXnPCGy4RCE97@cluster0.wc4ea7z.mongodb.net/test',
+      mongoOptions: advancedOptions,
+    }),
+    secret: 'Is this the real life? Is this just fantasy?',
+    resave: false,
+    saveUninitialized: false,
+    expires: 60000,
+    maxAge: 600000,
+  })
+);
 
-const PORT = 8080;
+function auth(req, res, next) {
+  if (req.session?.userLogin) {
+    return next();
+  }
+  return res.status(401).send('Error de autorizacion');
+}
 
-httpServer.listen(PORT, function () {
-  console.log('Servidor corriendo en http://localhost:8080');
+// const miContenedorMongoDB = new ContenedorMongoDb(urlMongo, Mensaje);   //probar mongo descomentando esto y usand en las funciones de abajo, a este contenedor
+// const miContenedorFirebase = new ContenedorFirebase(urlJson, urlDb, 'ecommerce'); //probar firebase descomentando esto y usand en las funciones de abajo, a este contenedor
+const miContenedorMensajes = new ContenedorArchivo('./mensajes.json');
+const miContenedorProductos = new ContenedorArchivo('./productos.json');
+
+app.engine(
+  'hbs',
+  handlebars.engine({
+    extname: '.hbs',
+    defaultLayout: 'index.hbs',
+    layoutsDir: './views/layouts/',
+    partialsDir: './views/partials/',
+  })
+);
+
+// establecemos el motor de plantilla que se utiliza
+app.set('view engine', 'hbs');
+// establecemos directorio donde se encuentran los archivos de plantilla
+app.set('views', './views');
+
+/* Pruebo router */
+
+// app.use('/', router);
+/* ROUTES */
+
+app.get('/api', auth, async (req, res) => {
+  const productos = await miContenedorProductos.getAll();
+  const mensajes = await miContenedorMensajes.getAll();
+
+  res.render('main', { usuario: req.session.userLogin, productos: productos, mensajes: mensajes });
+});
+app.get('/api/login', async (req, res) => {
+  res.render('login');
+});
+app.post('/api/login', async (req, res) => {
+  const { userLogin } = req.body;
+  req.session.userLogin = userLogin;
+  return res.redirect('/api');
 });
 
-app.get('/api/productos-test', async (req, res) => {
-  const qtyProducts = parseInt(req.query.cant) || 5;
-  const fakeProducts = [];
-  let id = 1;
-  for (let i = 0; i < qtyProducts; i++) fakeProducts.push({ id: id++, ...(await createRandomProduct()) });
-  res.status(200).send(fakeProducts);
+app.get('/api/logout', async (req, res) => {
+  res.render('logout', { usuario: req.session.userLogin });
+  req.session.destroy();
+});
+
+app.post('/api/login', async (req, res) => {
+  const { userLogin } = req.body;
+  req.session.userLogin = userLogin;
+  return res.redirect('/api');
 });
 
 io.on('connection', async (socket) => {
   console.log('Un cliente se ha conectado');
-  await getAndEmit(miContenedorArchivo, 'mensajes');
 
   socket.on('new-message', async (newMessage) => {
-    await saveByContainer(miContenedorArchivo, newMessage);
-    await getAndEmit(miContenedorArchivo, 'mensajes');
+    await miContenedorMensajes.save(newMessage);
+    const mensajes = await miContenedorMensajes.getAll();
+    io.sockets.emit('mensajes', mensajes);
   });
-  socket.on('delete-messages', async () => {
-    await deleteByContainer(miContenedorArchivo);
-    await getAndEmit(miContenedorArchivo, 'mensajes');
+  socket.on('new-product', async (newProduct) => {
+    await miContenedorProductos.save(newProduct);
+    const productos = await miContenedorProductos.getAll();
+    io.sockets.emit('productos', productos);
   });
 });
 

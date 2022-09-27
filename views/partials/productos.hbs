@@ -1,13 +1,15 @@
 <style>
-  .thumbnail{ height: 48px; }
+  .thumbnail {
+    height: 48px;
+  }
 </style>
 
 <div class='container bg-light p-4 my-2 mx-auto'>
-  <hr/>
+  <hr />
   <h1 class='text-primary mb-5'>Vista de productos</h1>
 
 
-{{#if listItems.length}}
+  {{#if productos.length}}
   <table class='table'>
     <thead>
       <tr class='table-dark'>
@@ -19,27 +21,27 @@
     </thead>
     <tbody>
 
-      {{#each listItems}}
+      {{#each productos}}
 
-        <tr class='table-dark align-middle'>
-          <td>{{this.nombre}}</td>
-          <td>${{this.precio}}</td>
-          <td><img src={{this.fotoUrl}} class='thumbnail' alt='' /></td>
+      <tr class='table-dark align-middle'>
+        <td>{{this.nombre}}</td>
+        <td>${{this.precio}}</td>
+        <td><img src={{this.fotoUrl}} class='thumbnail' alt='' /></td>
 
-        </tr>
+      </tr>
       {{/each}}
 
     </tbody>
 
   </table>
-{{else}}
+  {{else}}
 
-<div class='p-3 bg-white mb-4'>
+  <div class='p-3 bg-white mb-4'>
     <h2 class='text-danger'>No se encontraron productos</h2>
-</div>
-      
+  </div>
 
-{{/if}}
+
+  {{/if}}
 
 </div>
 
