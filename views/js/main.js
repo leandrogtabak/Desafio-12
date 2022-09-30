@@ -65,7 +65,76 @@ function sendProduct() {
   inputFotoUrl.value = '';
 }
 
-/* Un problema que tengo aca es que no se como hacer para que el partial de los mensajes y de los productos se actualice cuando uno agrega un producto */
-socket.on('mensajes', function (data) {
-  console.log(data);
+function renderMensajes(mensajes) {
+  const html =
+    `<div>` +
+    mensajes
+      .map((mensaje) => {
+        return ` <div class='d-flex align-items-center'>
+                  <p>
+  <span class='fw-bold text-primary'>${mensaje.author.email}</span>
+  <span style='color:brown;'>${mensaje.fyh}</span>
+  :
+  <span class='fst-italic text-success'>${mensaje.text}</span>
+</p>
+<img src=${mensaje.author.avatar} class='thumbnail' alt='' />
+</div>
+
+`;
+      })
+      .join('') +
+    `</div>`;
+
+  document.getElementById('listaMensajes').innerHTML = html;
+}
+
+function renderTabla(productos) {
+  const header = `<style>
+                   .thumbnail {
+                      height: 48px;
+                              }
+                  </style>
+<div class='container bg-light p-4 my-2 mx-auto'>
+  <hr />
+  <h1 class='text-primary mb-5'>Vista de productos</h1>`;
+
+  let html = header;
+
+  let tabla =
+    productos.length > 0
+      ? `
+      <table class='table'>
+      <thead>
+        <tr class='table-dark'>
+  
+          <th scope='col'>Nombre</th>
+          <th scope='col'>Precio</th>
+          <th scope='col'>Foto</th>
+        </tr>
+      </thead>
+      <tbody>` +
+        productos
+          .map((prod) => {
+            return `<tr class='table-dark align-middle'>
+                <td>${prod.nombre}</td>
+                <td>${prod.precio}</td>
+                <td><img src="${prod.fotoUrl}" class="thumbnail" alt="" /></td>
+        
+              </tr>`;
+          })
+          .join(' ') +
+        `  </tbody>
+        </table>`
+      : `  <div class='p-3 bg-white mb-4'>
+      <h2 class='text-danger'>No se encontraron productos</h2>
+    </div>`;
+  document.getElementById('tablaProductos').innerHTML = html + tabla;
+}
+
+socket.on('productos', (productos) => {
+  renderTabla(productos);
+});
+
+socket.on('mensajes', function (mensajes) {
+  renderMensajes(mensajes);
 });

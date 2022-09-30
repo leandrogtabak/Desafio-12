@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import MongoStore from 'connect-mongo';
-// import router from './routes/router.js';
+import router from './routes/router.js';
 
 const advancedOptions = { useNewUrlParser: true, useUnifiedTopology: true };
 
@@ -78,39 +78,16 @@ app.set('view engine', 'hbs');
 // establecemos directorio donde se encuentran los archivos de plantilla
 app.set('views', './views');
 
-/* Pruebo router */
+/* Utilizo router */
 
-// app.use('/', router);
-/* ROUTES */
-
-app.get('/api', auth, async (req, res) => {
-  const productos = await miContenedorProductos.getAll();
-  const mensajes = await miContenedorMensajes.getAll();
-
-  res.render('main', { usuario: req.session.userLogin, productos: productos, mensajes: mensajes });
-});
-app.get('/api/login', async (req, res) => {
-  res.render('login');
-});
-app.post('/api/login', async (req, res) => {
-  const { userLogin } = req.body;
-  req.session.userLogin = userLogin;
-  return res.redirect('/api');
-});
-
-app.get('/api/logout', async (req, res) => {
-  res.render('logout', { usuario: req.session.userLogin });
-  req.session.destroy();
-});
-
-app.post('/api/login', async (req, res) => {
-  const { userLogin } = req.body;
-  req.session.userLogin = userLogin;
-  return res.redirect('/api');
-});
+app.use('/', router);
 
 io.on('connection', async (socket) => {
   console.log('Un cliente se ha conectado');
+  const productos = await miContenedorProductos.getAll();
+  const mensajes = await miContenedorMensajes.getAll();
+  io.sockets.emit('productos', productos);
+  io.sockets.emit('mensajes', mensajes);
 
   socket.on('new-message', async (newMessage) => {
     await miContenedorMensajes.save(newMessage);
