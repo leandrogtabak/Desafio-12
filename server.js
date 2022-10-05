@@ -46,17 +46,12 @@ app.use(
     secret: 'Is this the real life? Is this just fantasy?',
     resave: false,
     saveUninitialized: false,
-    expires: 60000,
-    maxAge: 600000,
+    cookie: {
+      expires: 60000,
+      maxAge: 600000,
+    },
   })
 );
-
-function auth(req, res, next) {
-  if (req.session?.userLogin) {
-    return next();
-  }
-  return res.status(401).send('Error de autorizacion');
-}
 
 // const miContenedorMongoDB = new ContenedorMongoDb(urlMongo, Mensaje);   //probar mongo descomentando esto y usand en las funciones de abajo, a este contenedor
 // const miContenedorFirebase = new ContenedorFirebase(urlJson, urlDb, 'ecommerce'); //probar firebase descomentando esto y usand en las funciones de abajo, a este contenedor
